@@ -36,7 +36,7 @@ http.createServer(async function (req, res) {
   res.end();
 }).listen(3000);
 ```
-Sond current request to the server.(Apache HTTP server benchmarking tool)
+Send concurrent request to the server.(Apache HTTP server benchmarking tool)
 ```
 ab -n 20000 -c 150  http://localhost:3000/
 
