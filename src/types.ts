@@ -34,7 +34,9 @@ export type BatchPromise = {
     tmpResults: QueryResult[]
 }
 
+type queryType = 'DML' | 'prepare' | 'bind' | 'execute' | 'describe'
 export type QueryResult = {
+    type: queryType,
     success: boolean,
     message: string,
     rows: any[]
@@ -42,7 +44,7 @@ export type QueryResult = {
 
 
 export type Query = {
-    type: 'DML' | 'prepare' | 'bind' | 'execute' | 'describe';
+    type: queryType;
     text: string;
     values?: any[];
     resolve: (result: QueryResult) => void;

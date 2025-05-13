@@ -8,6 +8,12 @@ let rowNames: string[] = []
 let rowTypes: number[] = [];
 let queryCompleted = 0
 let commandResultRows: Row[] = []
+
+const syncBuffer = Buffer.alloc(5);
+syncBuffer[0] = 0x53; // 'S' for Sync
+syncBuffer.writeInt32BE(4, 1);
+
+
 export class UserClient {
     private socket: net.Socket;
     private queryBatches: QueryBatch[] = []
@@ -18,7 +24,6 @@ export class UserClient {
     private bufferOffset = 0
     private queryIndex = 0
     private buffer: Buffer = Buffer.alloc(0); // Add this line to your class properties
-
 
     constructor(socket: net.Socket) {
         this.socket = socket;
@@ -66,10 +71,9 @@ export class UserClient {
                 }]
             })
             this.socket.write(prepareMessage);
-            this.sendSyncMsg()
+            this.socket.write(syncBuffer);
         });
     }
-
     private setupDataHandler() {
         this.socket.on('data', (data) => {
             if (this.bufferOffset > 0) {
@@ -100,7 +104,7 @@ export class UserClient {
                 const messageContent = this.buffer.subarray(this.bufferOffset, this.bufferOffset + expectedTotalLength);
                 // const messageTypeName = MESSAGE_TYPES[messageType] || `Unknown(0x${messageType.toString(16)})`;
                 // console.log(messageTypeName)
-                // console.log('messageType:', messageType.toString(16), MESSAGE_TYPES[messageType])
+                // console.log('messageType:', messageType.toString(16), MESSAGE_TYPES[messageType], this.queryIndex, currentQuery?.statementName)
                 switch (messageType) {
                     case 0x52: // Authentication - Handled during connect
                     case 0x4B: // BackendKeyData
@@ -194,6 +198,7 @@ export class UserClient {
                         {
                             queryCompleted++
                             currentQuery.resolve({
+                                type: currentBatch.queries[this.queryIndex].type,
                                 success: true,
                                 message: parseCommandComplete(messageContent),
                                 rows: commandResultRows
@@ -207,6 +212,7 @@ export class UserClient {
                             if (currentBatch && currentBatch.queries[this.queryIndex] && currentBatch.queries[this.queryIndex].type === 'prepare') {
                                 queryCompleted++
                                 currentBatch.queries[this.queryIndex].resolve({
+                                    type: currentBatch.queries[this.queryIndex].type,
                                     success: true,
                                     message: 'Parse Complete',
                                     rows: []
@@ -226,6 +232,7 @@ export class UserClient {
                         for (let [k, query] of currentBatch.queries.entries()) {
                             if (k > this.queryIndex) {
                                 query.resolve({
+                                    type: currentBatch.queries[this.queryIndex].type,
                                     success: false,
                                     message: 'skipped due to error of other query in this batch',
                                     rows: []
@@ -252,7 +259,7 @@ export class UserClient {
                 }
                 this.bufferOffset += expectedTotalLength; // Move to the next message
             } // end while loop
-        });
+        })
     }
 
     private addBatch(queries: Query[]) {
@@ -277,25 +284,31 @@ export class UserClient {
                     }
                 }
             }
-            // send query
+            // send queries
+            const toServerBuffers: Buffer[] = [];
             for (let query of queries) {
                 if (!query.values || query.values.length === 0) {
                     const queryMessage = createQueryMessage(query.text);
-                    this.socket.write(queryMessage);
+                    // this.socket.write(queryMessage);
+                    toServerBuffers.push(queryMessage);
                 }
                 else {
                     // bind
                     const bindMessage = createBindMessage('', query.statementName || '', query.values || []);
-                    this.socket.write(bindMessage);
-                    if (query.statementName && !rowNameInfoCache.get(query.statementName)) {
+                    // this.socket.write(bindMessage);
+                    toServerBuffers.push(bindMessage);
+                    if (query.statementName && !rowNameInfoCache.has(query.statementName)) {
+                        rowNameInfoCache.set(query.statementName, [])
                         // call row des
                         const describeMessage = createDescribeMessage('P', '');
-                        this.socket.write(describeMessage);
+                        // this.socket.write(describeMessage);
+                        toServerBuffers.push(describeMessage);
                     }
 
                     // execute
                     const executeMessage = createExecuteMessage('', 0);
-                    this.socket.write(executeMessage);
+                    // this.socket.write(executeMessage);
+                    toServerBuffers.push(executeMessage);
                 }
             }
             let thisBatch: QueryBatch = {
@@ -303,16 +316,10 @@ export class UserClient {
                 queries
             }
             this.queryBatches.push(thisBatch)
-            // Sync forces execution and ReadyForQuery at the end
-            this.sendSyncMsg()
+            toServerBuffers.push(syncBuffer);
+            this.socket.write(Buffer.concat(toServerBuffers));
+            // this.sendSyncMsg()
             resolve(1)
         });
-    }
-
-    private sendSyncMsg() {
-        const buffer = Buffer.alloc(5);
-        buffer[0] = 0x53; // 'S' for Sync
-        buffer.writeInt32BE(4, 1); // Length is always 4
-        this.socket.write(buffer);
     }
 }
