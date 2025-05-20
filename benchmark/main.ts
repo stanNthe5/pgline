@@ -54,10 +54,10 @@ function benchmark(worker_path: string) {
 }
 
 async function measureCpuUsageFor<T>(fn: () => Promise<T>): Promise<T> {
-    const startCpu = process.cpuUsage();   // CPU 时间（微秒）
-    const startTime = process.hrtime();    // 墙钟时间（[s, ns]）
+    const startCpu = process.cpuUsage();
+    const startTime = process.hrtime();
 
-    const result = await fn();             // 执行你的函数
+    const result = await fn();
 
     const elapsedCpu = process.cpuUsage(startCpu);
     const elapsedTime = process.hrtime(startTime);
