@@ -25,12 +25,18 @@ export class UserClient {
     private queryIndex = 0
     private buffer: Buffer = Buffer.alloc(0); // Add this line to your class properties
 
+
+    private responseBuffer: Buffer[] = []
+    private isProcessingBuffer = false
     constructor(socket: net.Socket) {
         this.socket = socket;
         this.setupDataHandler(); // Setup the main handler immediately
     }
 
     public query(text: string, values?: any[]): Promise<QueryResult> {
+        if (values?.includes(undefined)) {
+            throw new Error("query values contains undefined");
+        }
         if (!text.endsWith(';')) {
             text += ';'
         }
@@ -74,10 +80,15 @@ export class UserClient {
             this.socket.write(syncBuffer);
         });
     }
+
     private setupDataHandler() {
         this.socket.on('data', (data) => {
             if (this.bufferOffset > 0) {
-                this.buffer = Buffer.concat([this.buffer.subarray(this.bufferOffset), data]);
+                if (this.buffer.length == this.bufferOffset) {
+                    this.buffer = data
+                } else {
+                    this.buffer = Buffer.concat([this.buffer.subarray(this.bufferOffset), data]);
+                }
                 this.bufferOffset = 0
             } else {
                 this.buffer = Buffer.concat([this.buffer, data]);

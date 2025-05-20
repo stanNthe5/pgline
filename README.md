@@ -1,5 +1,5 @@
 # pgline
-A PostgreSQL driver for Node.js written in TypeScript. It fully implements [Pipeline Mode](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html). 
+A PostgreSQL driver for Node.js written in TypeScript. It fully implements [Pipeline Mode](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html). Pgline delivers exceptionally high performance in concurrent queries. It offers faster speed and lower database CPU usage. 
 
 ## Install
 ```
@@ -11,33 +11,34 @@ npm i pgline
 import { pgline } from 'pgline';
 let client = await pgline('postgresql://postgres:postgres@localhost:5432/someDb')
 let res = await client.query("select * from posts where id=$1", [id]);
-console.log(res.rows[0])
+console.log(res.rows)
 ```
 
-## Performance
+## Benchmark
 
-pgline delivers exceptionally high performance in concurrent queries. Among the database drivers I’m familiar with (pg, postgres, bun.sql), it offers faster speed and lower database CPU usage. This is mainly attributed to the deep utilization of pipeline mode and the optimization of the message-sending mechanism.
+This benchmark is comparing **pgline** to **postgresjs** and **node-postgres**. For each driver, it uses 3 worker threads, makes **100** queries per batch, and **100k** queries as total.
+(Benchmark scripts is in the `benchmark` folder of this project.)
 
-For testing, I installed PostgresSQL 17 On a 2-vcpu aws micro instance, and make simple requests from another instance. The result is 60,000 queries per second while the CPU usage of database instance is less than 50%.
+### Result
+```
+postgres
+-----
+Wall time: 1651.20 ms
+CPU time: 3701.36 ms
+Estimated CPU usage: 37.36%
 
-### How did I make the testing?
-Start a http server and send 20 queries per request.
-```
-http.createServer(async function (req, res) {
-  let text = ''
-    for (let id of ids) {
-        let r = await client.query('select title from posts where id=$1;', [id])
-        if (r.rows.length) {
-          text += r.rows[0].title
-        }
-    }
-  res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.write(text);
-  res.end();
-}).listen(3000);
-```
-Send concurrent request to the server.(Apache HTTP server benchmarking tool)
-```
-ab -n 20000 -c 150  http://localhost:3000/
+
+pgline
+-----
+Wall time: 977.27 ms
+CPU time: 1746.70 ms
+Estimated CPU usage: 29.79%
+
+
+pg
+-----
+Wall time: 2971.98 ms
+CPU time: 6084.01 ms
+Estimated CPU usage: 34.12%
 
 ```

@@ -7,15 +7,15 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-test.ts
-bench/
+devtest/
+package-lock.json
 
 pids/
 *.pid
 *.seed
 *.pid.lock
 
-.env
+**/.env
 .env.*.local
 
 
