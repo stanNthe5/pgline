@@ -8,6 +8,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 devtest/
+src/worder.ts
 package-lock.json
 
 pids/
