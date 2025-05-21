@@ -8,7 +8,7 @@ npm i pgline
 
 ## Usage
 ```
-import { pgline } from 'pgline';
+import  pgline  from 'pgline';
 let client = await pgline('postgresql://postgres:postgres@localhost:5432/someDb')
 let res = await client.query("select * from posts where id=$1", [id]);
 console.log(res.rows)
