@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import type { PgErrorFields } from './types.js';
 
-export function createStartupMessage(user: string, database: string): Buffer { /* ... as before ... */
+export function createStartupMessage(user: string, database: string): Buffer {
     const params = `user\0${user}\0database\0${database}\0\0`;
     // Protocol version 3.0 = 196608 (0x00030000)
     const protocolVersion = 196608;
@@ -18,14 +18,14 @@ export function createStartupMessage(user: string, database: string): Buffer { /
     return buffer;
 }
 
-export function md5Password(user: string, password: string, salt: Buffer): string { /* ... as before ... */
+export function md5Password(user: string, password: string, salt: Buffer): string {
     const md5 = (input: string | Buffer) => crypto.createHash('md5').update(input).digest('hex');
     const hashedPassword = md5(password + user);
     const finalHash = md5(Buffer.concat([Buffer.from(hashedPassword, 'hex'), salt]));
     return `md5${finalHash}`;
 }
 
-export function createPasswordMessage(hashedPassword: string): Buffer { /* ... as before ... */
+export function createPasswordMessage(hashedPassword: string): Buffer {
     // Message structure: Type (Implicit 'p') + Length + Password String + Null terminator
     const passwordBytes = Buffer.from(hashedPassword + '\0', 'utf8'); // Add null terminator
     const length = 4 + passwordBytes.length; // Length field includes self (4 bytes)
@@ -42,7 +42,7 @@ export function createPasswordMessage(hashedPassword: string): Buffer { /* ... a
 }
 
 // createQueryMessage - Not used for prepared statements, but keep if needed elsewhere
-export function createQueryMessage(query: string): Buffer { /* ... as before ... */
+export function createQueryMessage(query: string): Buffer {
     const queryBytes = Buffer.from(query + '\0', 'utf8');
     const length = 4 + queryBytes.length; // Length includes self
     const buffer = Buffer.alloc(1 + length); // 'Q' + length + query + null
@@ -57,14 +57,14 @@ export function createQueryMessage(query: string): Buffer { /* ... as before ...
 // parseDataRow - Logic is now inline in the data handler, keep for reference if needed
 // function parseDataRow(messageContent: Buffer): string[] | null { ... }
 
-export function createTerminateMessage(): Buffer { /* ... as before ... */
+export function createTerminateMessage(): Buffer {
     const buffer = Buffer.alloc(5);
     buffer[0] = 0x58; // 'X'
     buffer.writeInt32BE(4, 1);
     return buffer;
 }
 
-export function parseServerMessage(msg: string): { [key: string]: string } { /* ... as before ... */
+export function parseServerMessage(msg: string): { [key: string]: string } {
     const attrs: { [key: string]: string } = {};
     msg.split(',').forEach(pair => {
         const equalIndex = pair.indexOf('=');
@@ -77,7 +77,7 @@ export function parseServerMessage(msg: string): { [key: string]: string } { /* 
     return attrs;
 }
 
-export function xorBuffers(a: Buffer, b: Buffer): Buffer { /* ... as before ... */
+export function xorBuffers(a: Buffer, b: Buffer): Buffer {
     const length = Math.min(a.length, b.length);
     const result = Buffer.alloc(length);
     for (let i = 0; i < length; i++) {
@@ -86,7 +86,7 @@ export function xorBuffers(a: Buffer, b: Buffer): Buffer { /* ... as before ... 
     return result;
 }
 
-export function hmac(key: Buffer, message: string | Buffer): Buffer { /* ... as before ... */
+export function hmac(key: Buffer, message: string | Buffer): Buffer {
     return crypto.createHmac('sha256', key).update(message).digest();
 }
 
@@ -310,21 +310,37 @@ export function genStatementNameFromText(str: string) {
     return crypto.createHash('md5').update(str).digest('hex').substring(0, 8);
 }
 
-export function genPGTypesFromValues(v: any[]) {
-    let t: number[] = []
-    for (let value of v) {
-        switch (typeof value) {
-            case 'boolean':
-                t.push(16)
-                break
-            case 'number':
-                t.push(20)
-                break
-            default:
-                t.push(25)
+export function genPGTypesFromValues(values: any[]) {
+    const oids: number[] = []
+
+    for (let value of values) {
+        if (value === null || value === undefined) {
+            oids.push(25)
+            continue
+        }
+
+        if (typeof value === 'boolean') {
+            oids.push(16) // bool
+        } else if (typeof value === 'number') {
+            if (Number.isInteger(value)) {
+                oids.push(23) // int4
+            } else {
+                oids.push(701) // float8
+            }
+        } else if (typeof value === 'bigint') {
+            oids.push(20) // int8
+        } else if (typeof value === 'string') {
+            oids.push(25) // text
+        } else if (value instanceof Date) {
+            oids.push(1114) // timestamp (without time zone)
+        } else if (Buffer.isBuffer(value)) {
+            oids.push(17) // bytea
+        } else {
+            oids.push(25)
         }
     }
-    return t
+
+    return oids
 }
 
 export function parseCommandComplete(messageBuffer: Buffer) {
