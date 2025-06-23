@@ -82,10 +82,6 @@ export type PgErrorFields = {
 
 export type Row = { [k: string]: any }
 
-function test(s: any) {
-    let ad = BigInt(s)
-}
-
 const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER); // 9007199254740991n
 const MIN_SAFE = BigInt(Number.MIN_SAFE_INTEGER); // -9007199254740991n
 

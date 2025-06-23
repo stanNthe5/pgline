@@ -323,12 +323,14 @@ export function genPGTypesFromValues(values: any[]) {
             oids.push(16) // bool
         } else if (typeof value === 'number') {
             if (Number.isInteger(value)) {
-                oids.push(23) // int4
+                if (value > 2_147_483_647) {
+                    oids.push(20) // int8
+                } else {
+                    oids.push(23) // int4
+                }
             } else {
                 oids.push(701) // float8
             }
-        } else if (typeof value === 'bigint') {
-            oids.push(20) // int8
         } else if (typeof value === 'string') {
             oids.push(25) // text
         } else if (value instanceof Date) {
