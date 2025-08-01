@@ -7,11 +7,20 @@ npm i pgline
 ```
 
 ## Usage
+
+### Connect and Query
 ```
 import  pgline  from 'pgline';
 let client = await pgline('postgresql://postgres:postgres@localhost:5432/someDb')
-let res = await client.query("select * from posts where id=$1", [id]);
+let res = await client.query("select * from posts where id=$1", [123]);
 console.log(res.rows)
+```
+### Transaction
+```
+let txRes = await client.begin([
+    { text: "update posts set title=$1 where id=$2", values: [123,'abc'] },
+    { text: "insert into posts(title) values($1)", values: ['abc'] },
+])
 ```
 
 ## Benchmark
