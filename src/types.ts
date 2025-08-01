@@ -42,6 +42,10 @@ export type QueryResult = {
     rows: any[]
 }
 
+export type UIQuery = {
+    text: string,
+    values?: any[]
+}
 
 export type Query = {
     type: queryType;

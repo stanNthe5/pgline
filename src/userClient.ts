@@ -1,5 +1,5 @@
 import net from 'node:net';
-import { typeParsers, type Query, type QueryBatch, type QueryResult, type Row } from './types.js';
+import { typeParsers, type Query, type QueryBatch, type QueryResult, type Row, type UIQuery } from './types.js';
 import { createBindMessage, createDescribeMessage, createExecuteMessage, createPrepareMessage, createQueryMessage, genPGTypesFromValues, genStatementNameFromText, parseCommandComplete, parseErrorResponse } from './utils.js';
 
 let rowNameInfoCache = new Map<string, string[]>()
@@ -20,7 +20,9 @@ export class UserClient {
     private preparedStatementNames: string[] = []
 
     private isRunningPendingQueries = false
+    private isRunningTransaction = false
     private pendingQueries: Query[] = []
+    private pendingQueryGroups: Query[][] = []
     private bufferOffset = 0
     private queryIndex = 0
     private buffer: Buffer = Buffer.alloc(0); // Add this line to your class properties
@@ -55,14 +57,52 @@ export class UserClient {
     private async runAllPendingQueries() {
         // wait a round for more pending queries
         await Promise.resolve();
-        if (!this.pendingQueries.length) {
+        if (!this.pendingQueries.length && !this.pendingQueryGroups.length) {
             this.isRunningPendingQueries = false
             return
         }
-        let queries = [...this.pendingQueries]
-        this.pendingQueries = []
-        await this.addBatch(queries)
+        if (this.pendingQueries.length) {
+            let queries = [...this.pendingQueries]
+            this.pendingQueries = []
+            await this.addBatch(queries)
+        }
+        if (this.pendingQueryGroups.length) {
+            let groups = [...this.pendingQueryGroups]
+            this.pendingQueryGroups = []
+            for (let group of groups) {
+                await this.addBatch(group)
+            }
+        }
         await this.runAllPendingQueries()
+    }
+
+    private addQuery(group: Query[], text: string, values: any[] = []): Promise<QueryResult> {
+        return new Promise(async (resolve, reject) => {
+            group.push({
+                resolve, reject, text, values: values ?? [], type: 'DML',
+            })
+        })
+    }
+
+    // transaction
+    public begin(queries: UIQuery[]) {
+        if (!queries.length) {
+            return []
+        }
+        let group: Query[] = []
+        let ps: Promise<QueryResult>[] = []
+        this.addQuery(group, 'BEGIN')
+        this.addQuery(group, 'ROLLBACK')
+        for (let query of queries) {
+            ps.push(this.addQuery(group, query.text, query.values))
+        }
+        this.addQuery(group, 'COMMIT')
+        this.pendingQueryGroups.push(group)
+        if (!this.isRunningPendingQueries) {
+            this.isRunningPendingQueries = true
+            this.runAllPendingQueries()
+        }
+        return Promise.all(ps)
     }
 
     private prepareStatement(name: string, query: Query) {
