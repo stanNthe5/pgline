@@ -1,4 +1,4 @@
-import net from 'net';
+import net from 'node:net';
 import { typeParsers, type Query, type QueryBatch, type QueryResult, type Row } from './types.js';
 import { createBindMessage, createDescribeMessage, createExecuteMessage, createPrepareMessage, createQueryMessage, genPGTypesFromValues, genStatementNameFromText, parseCommandComplete, parseErrorResponse } from './utils.js';
 
@@ -42,7 +42,7 @@ export class UserClient {
         }
         return new Promise(async (resolve, reject) => {
             this.pendingQueries.push({
-                resolve, reject, text, values, type: 'DML',
+                resolve, reject, text, values: values ?? [], type: 'DML',
             })
             // make sure only one runAllPendingQueries is running
             if (!this.isRunningPendingQueries) {
@@ -65,14 +65,15 @@ export class UserClient {
         await this.runAllPendingQueries()
     }
 
-    private prepareStatement(name: string, text: string, paramTypes: number[] = []) {
+    private prepareStatement(name: string, query: Query) {
+        let pgTypes = genPGTypesFromValues(query.values ?? [])
         return new Promise((resolve, reject) => {
-            const prepareMessage = createPrepareMessage(name, text, paramTypes);
+            const prepareMessage = createPrepareMessage(name, query.text, pgTypes);
             this.queryBatches.push({
                 queries: [{
                     type: 'prepare',
                     resolve,
-                    text,
+                    text: query.text,
                     reject
                 }]
             })
@@ -280,15 +281,14 @@ export class UserClient {
         return new Promise(async (resolve, reject) => {
             // check prepared statement
             for (let query of queries) {
-                if (query.values && query.values?.length) {
+                if (query.values) {
                     query.statementName = genStatementNameFromText(query.text)
                     if (!this.preparedStatementNames.includes(query.statementName)) {
                         // auto create prepared statement
                         try {
-                            let pgTypes = genPGTypesFromValues(query.values)
                             this.preparedStatementNames.push(query.statementName)
                             // should await preparedstatement finished before sending related queries
-                            await this.prepareStatement(query.statementName, query.text, pgTypes);
+                            await this.prepareStatement(query.statementName, query);
                         } catch (msg) {
                             console.log('err creating statement: ', query.statementName, msg, "end of err>")
                         }
@@ -298,7 +298,7 @@ export class UserClient {
             // send queries
             const toServerBuffers: Buffer[] = [];
             for (let query of queries) {
-                if (!query.values || query.values.length === 0) {
+                if (!query.values) {
                     const queryMessage = createQueryMessage(query.text);
                     // this.socket.write(queryMessage);
                     toServerBuffers.push(queryMessage);

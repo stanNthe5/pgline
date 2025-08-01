@@ -1,4 +1,4 @@
-import net from 'net';
+import net from 'node:net';
 import crypto from 'node:crypto';
 import { UserClient } from './userClient.js';
 import { createPasswordMessage, createStartupMessage, hmac, md5Password, parseErrorResponse, parseServerMessage, xorBuffers } from './utils.js';
