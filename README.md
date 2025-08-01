@@ -25,29 +25,36 @@ let txRes = await client.begin([
 
 ## Benchmark
 
-This benchmark is comparing **pgline** to **postgresjs** and **node-postgres**. For each driver, it uses 3 worker threads, makes **100** queries per batch, and **100k** queries as total.
+This benchmark is comparing **pgline** to **Bun sql**, **postgresjs** and **node-postgres**. For each driver, it uses 3 worker threads, makes **100** queries per batch, and **100k** queries as total.
 (Benchmark scripts is in the `benchmark` folder of this project.)
 
 ### Result
 ```
+bun sql
+-----
+Wall time: 1472.29 ms
+CPU time: 2770.74 ms
+Estimated CPU usage: 31.37%
+
+
 postgres
 -----
-Wall time: 1651.20 ms
-CPU time: 3701.36 ms
-Estimated CPU usage: 37.36%
+Wall time: 1549.65 ms
+CPU time: 3486.67 ms
+Estimated CPU usage: 37.50%
 
 
 pgline
 -----
-Wall time: 977.27 ms
-CPU time: 1746.70 ms
-Estimated CPU usage: 29.79%
+Wall time: 847.06 ms
+CPU time: 1522.07 ms
+Estimated CPU usage: 29.95%
 
 
 pg
 -----
-Wall time: 2971.98 ms
-CPU time: 6084.01 ms
-Estimated CPU usage: 34.12%
+Wall time: 3130.38 ms
+CPU time: 6573.17 ms
+Estimated CPU usage: 35.00%
 
 ```

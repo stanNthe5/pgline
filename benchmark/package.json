@@ -12,7 +12,7 @@
   "dependencies": {
     "dotenv": "^16.5.0",
     "pg": "^8.16.0",
-    "pgline": "^0.1.7",
+    "pgline": "^0.1.10",
     "postgres": "^3.4.5"
   }
 }

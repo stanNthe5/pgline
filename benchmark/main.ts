@@ -6,11 +6,16 @@ import { Worker } from "worker_threads";
 const worker_pgline_path = path.resolve(__dirname, 'worker_pgline.js');
 const worker_pg_path = path.resolve(__dirname, 'worker_pg.js');
 const worker_postgres_path = path.resolve(__dirname, 'worker_postgres.js');
+const worker_bun_sql_path = path.resolve(__dirname, 'worker_bun_sql.js');
+
 const TOTAL_TASKS = 1000;
 
 const WORKER_COUNT = 3;
 
+console.log('bun sql\n-----')
+await measureCpuUsageFor(async () => await benchmark(worker_bun_sql_path))
 
+log('\n')
 console.log('postgres\n-----')
 await measureCpuUsageFor(async () => await benchmark(worker_postgres_path))
 
